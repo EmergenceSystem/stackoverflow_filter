@@ -1,13 +1,11 @@
 %%%-------------------------------------------------------------------
 %%% @doc Stack Overflow search agent using the Stack Exchange API.
 %%%
-%%% As an agent this module:
-%%%   - Announces capabilities to em_disco on startup via `agent_hello'.
-%%%   - Maintains a memory of question URLs already returned, so
-%%%     duplicate questions across successive queries are filtered out.
+%%% Announces capabilities to em_disco on startup and maintains a
+%%% memory of question URLs already returned so duplicates across
+%%% successive queries are filtered out.
 %%%
 %%% Handler contract: `handle/2' (Body, Memory) -> {RawList, NewMemory}.
-%%% Returns a raw Erlang list — em_filter_server encodes it.
 %%% Memory schema: `#{seen => #{binary_url => true}}'.
 %%% @end
 %%%-------------------------------------------------------------------
@@ -15,7 +13,7 @@
 -behaviour(application).
 
 -export([start/2, stop/1]).
--export([handle/1, handle/2]).
+-export([handle/2]).
 
 -define(API_URL, "https://api.stackexchange.com/2.3/search/advanced").
 
@@ -38,10 +36,10 @@ start(_StartType, _StartArgs) ->
     }).
 
 stop(_State) ->
-    em_filter:stop_filter(stackoverflow_filter).
+    em_filter:stop_agent(stackoverflow_filter).
 
 %%====================================================================
-%% Agent handler — with memory (primary path)
+%% Agent handler
 %%====================================================================
 
 handle(Body, Memory) when is_binary(Body) ->
@@ -57,16 +55,7 @@ handle(_Body, Memory) ->
     {[], Memory}.
 
 %%====================================================================
-%% Plain filter handler — backward compatibility
-%%====================================================================
-
-handle(Body) when is_binary(Body) ->
-    generate_embryo_list(Body);
-handle(_) ->
-    [].
-
-%%====================================================================
-%% Search and processing (unchanged)
+%% Search and processing
 %%====================================================================
 
 generate_embryo_list(JsonBinary) ->
@@ -142,10 +131,6 @@ process_question(Q) ->
             }};
         _ -> false
     end.
-
-%%====================================================================
-%% Internal helpers
-%%====================================================================
 
 -spec url_of(map()) -> binary().
 url_of(#{<<"properties">> := #{<<"url">> := Url}}) -> Url;
